@@ -59,6 +59,7 @@ type Loop struct {
 	subregionBound Rect
 }
 
+
 // LoopFromPoints constructs a loop from the given points.
 func LoopFromPoints(pts []Point) *Loop {
 	l := &Loop{
@@ -213,7 +214,8 @@ func (l Loop) RectBound() Rect {
 // RectBound. The bound is conservative such that if the loop contains a point P,
 // the bound also contains it.
 func (l Loop) CapBound() Cap {
-	return l.bound.CapBound()
+	//return l.bound.CapBound()
+	return l.RectBound().CapBound()
 }
 
 // Vertex returns the vertex for the given index. For convenience, the vertex indices
@@ -248,4 +250,32 @@ func (l Loop) ContainsPoint(p Point) bool {
 	return inside
 }
 
+// ContainsCell checks whether the cell is completely enclosed by this loop.
+// Does not count for loop interior and uses raycasting.
+func (l Loop) ContainsCell(c Cell) bool {
+	for i := 0; i < 4; i++ {
+		v := c.Vertex(i)
+		if !l.ContainsPoint(v) {
+			return false
+		}
+	}
+	return true
+}
+
+// IntersectsCell checks if any edge of the cell intersects the loop or if the cell is contained.
+// Does not count for loop interior and uses raycasting.
+func (l Loop) IntersectsCell(c Cell) bool {
+	for i := 0; i < 4; i++ {
+		crosser := NewChainEdgeCrosser(c.Vertex(i), c.Vertex((i+1)%4), l.Vertex(0))
+		for _, v := range l.Vertices()[1:] {
+			if crosser.EdgeOrVertexChainCrossing(v) {
+				return true
+			}
+		}
+		if crosser.EdgeOrVertexChainCrossing(l.Vertex(0)) { //close the loop
+			return true
+		}
+	}
+	return l.ContainsCell(c)
+}
 // BUG(): The major differences from the C++ version is pretty much everything.
