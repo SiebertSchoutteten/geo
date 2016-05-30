@@ -275,7 +275,7 @@ func (l Loop) ContainsLoop(l2 Loop) bool {
 }
 //IntersectsLoop checks if any edge of the given loop intersects the loop.
 //Does not count for loop interior and uses raycasting
-func (l loop) IntersectsLoop(l2 loop) bool{
+func (l Loop) IntersectsLoop(l2 Loop) bool{
 	amount := l.NumEdges()
 	
 	for i := 0; i < amount; i++{
