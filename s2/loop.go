@@ -259,10 +259,39 @@ func (l Loop) ContainsCell(c Cell) bool {
 			return false
 		}
 	}
+	if l.IntersectsCell(c) {
+		return false
+	}
 	return true
 }
 
-// IntersectsCell checks if any edge of the cell intersects the loop or if the cell is contained.
+func (l Loop) ContainsLoop(l2 Loop) bool {
+	for i := 0; i < len(l2.Vertices()) ; i++{
+		if !l.ContainsPoint(l2.Vertex(i)) {
+			return false
+		}
+	}	
+	return true
+}
+//IntersectsLoop checks if any edge of the given loop intersects the loop.
+//Does not count for loop interior and uses raycasting
+func (l loop) IntersectsLoop(l2 loop) bool{
+	amount := l.NumEdges()
+	
+	for i := 0; i < amount; i++{
+		crosser := NewChainEdgeCrosser(l.Vertex(i), l.Vertex((i+1)%4),l.Vertex(0))
+		for _,v := range l2.Vertices()[1:]{
+			if crosser.EdgeOrVertexChainCrossing(v){
+				return true
+			}
+		}
+		if crosser.EdgeOrVertexChainCrossing(l2.Vertex(0)){
+			return true
+		}
+	}
+	return false
+}
+// IntersectsCell checks if any edge of the cell intersects the loop.
 // Does not count for loop interior and uses raycasting.
 func (l Loop) IntersectsCell(c Cell) bool {
 	for i := 0; i < 4; i++ {
@@ -276,6 +305,8 @@ func (l Loop) IntersectsCell(c Cell) bool {
 			return true
 		}
 	}
-	return l.ContainsCell(c)
+	return false
 }
+
+
 // BUG(): The major differences from the C++ version is pretty much everything.
