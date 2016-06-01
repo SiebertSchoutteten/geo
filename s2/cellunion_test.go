@@ -346,6 +346,14 @@ func TestNormalizePseudoRandom(t *testing.T) {
 				len(expected), len(cellunion))
 		}
 
+		// Test GetCapBound().
+		cb := cellunion.CapBound()
+		for _, ci := range cellunion {
+			if !cb.ContainsCell(CellFromCellID(ci)) {
+				t.Errorf("CapBound %v of union %v should contain cellID %v", cb, cellunion, ci)
+			}
+		}
+
 		for _, j := range input {
 			if !cellunion.ContainsCellID(j) {
 				t.Errorf("Expected containment of CellID %v", j)
@@ -587,6 +595,67 @@ func TestCellUnionRectBound(t *testing.T) {
 	for _, test := range tests {
 		if got := test.cu.RectBound(); !rectsApproxEqual(got, test.want, epsilon, epsilon) {
 			t.Errorf("%v.RectBound() = %v, want %v", test.cu, got, test.want)
+		}
+	}
+}
+
+func TestLeafCellsCovered(t *testing.T) {
+	tests := []struct {
+		have []CellID
+		want int64
+	}{
+		{},
+		{
+			have: []CellID{},
+			want: 0,
+		},
+		{
+			// One leaf cell on face 0.
+			have: []CellID{
+				CellIDFromFace(0).ChildBeginAtLevel(maxLevel),
+			},
+			want: 1,
+		},
+		{
+			// Face 0 itself (which includes the previous leaf cell).
+			have: []CellID{
+				CellIDFromFace(0).ChildBeginAtLevel(maxLevel),
+				CellIDFromFace(0),
+			},
+			want: 1 << 60,
+		},
+		/*
+			TODO(roberts): Once Expand is implemented, add the two tests for these
+			// Five faces.
+			cell_union.Expand(0),
+			want: 5 << 60,
+			// Whole world.
+			cell_union.Expand(0),
+			want: 6 << 60,
+		*/
+		{
+			// Add some disjoint cells.
+			have: []CellID{
+				CellIDFromFace(0).ChildBeginAtLevel(maxLevel),
+				CellIDFromFace(0),
+				CellIDFromFace(1).ChildBeginAtLevel(1),
+				CellIDFromFace(2).ChildBeginAtLevel(2),
+				CellIDFromFace(2).ChildEndAtLevel(2).Prev(),
+				CellIDFromFace(3).ChildBeginAtLevel(14),
+				CellIDFromFace(4).ChildBeginAtLevel(27),
+				CellIDFromFace(4).ChildEndAtLevel(15).Prev(),
+				CellIDFromFace(5).ChildBeginAtLevel(30),
+			},
+			want: 1 + (1 << 6) + (1 << 30) + (1 << 32) +
+				(2 << 56) + (1 << 58) + (1 << 60),
+		},
+	}
+
+	for _, test := range tests {
+		cu := CellUnion(test.have)
+		cu.Normalize()
+		if got := cu.LeafCellsCovered(); got != test.want {
+			t.Errorf("CellUnion(%v).LeafCellsCovered() = %v, want %v", cu, got, test.want)
 		}
 	}
 }

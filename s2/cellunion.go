@@ -16,7 +16,9 @@ limitations under the License.
 
 package s2
 
-import "sort"
+import (
+	"sort"
+)
 
 // A CellUnion is a collection of CellIDs.
 //
@@ -159,9 +161,64 @@ func (cu *CellUnion) RectBound() Rect {
 	return bound
 }
 
+// CapBound returns a Cap that bounds this entity.
+func (cu *CellUnion) CapBound() Cap {
+	if len(*cu) == 0 {
+		return EmptyCap()
+	}
+
+	// Compute the approximate centroid of the region. This won't produce the
+	// bounding cap of minimal area, but it should be close enough.
+	var centroid Point
+
+	for _, ci := range *cu {
+		area := AvgAreaMetric.Value(ci.Level())
+		centroid = Point{centroid.Add(ci.Point().Mul(area))}
+	}
+
+	if zero := (Point{}); centroid == zero {
+		centroid = PointFromCoords(1, 0, 0)
+	} else {
+		centroid = Point{centroid.Normalize()}
+	}
+
+	// Use the centroid as the cap axis, and expand the cap angle so that it
+	// contains the bounding caps of all the individual cells.  Note that it is
+	// *not* sufficient to just bound all the cell vertices because the bounding
+	// cap may be concave (i.e. cover more than one hemisphere).
+	c := CapFromPoint(centroid)
+	for _, ci := range *cu {
+		c = c.AddCap(CellFromCellID(ci).CapBound())
+	}
+
+	return c
+}
+
 // ContainsCell reports whether this cell union contains the given cell.
 func (cu *CellUnion) ContainsCell(c Cell) bool {
 	return cu.ContainsCellID(c.id)
 }
 
-// BUG: Differences from C++, almost everything.
+// IntersectsCell reports whether this cell union intersects the given cell.
+func (cu *CellUnion) IntersectsCell(c Cell) bool {
+	return cu.IntersectsCellID(c.id)
+}
+
+// LeafCellsCovered reports the number of leaf cells covered by this cell union.
+// This will be no more than 6*2^60 for the whole sphere.
+func (cu *CellUnion) LeafCellsCovered() int64 {
+	var numLeaves int64
+	for _, c := range *cu {
+		numLeaves += 1 << uint64((maxLevel-int64(c.Level()))<<1)
+	}
+	return numLeaves
+}
+
+// BUG: Differences from C++:
+//  Contains(CellUnion)/Intersects(CellUnion)
+//  Union(CellUnion)/Intersection(CellUnion)/Difference(CellUnion)
+//  Expand
+//  IntersectsCellID
+//  CapBound
+//  ContainsPoint
+//  AverageArea/ApproxArea/ExactArea
